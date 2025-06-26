@@ -1,0 +1,9 @@
+{
+  "name": "soon-supabase-proxy",
+  "version": "1.0.0",
+  "main": "api/supabase-proxy.js",
+  "type": "module",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.39.5"
+  }
+}
