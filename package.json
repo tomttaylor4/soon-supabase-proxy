@@ -4,6 +4,6 @@
   "main": "api/supabase-proxy.js",
   "type": "module",
   "dependencies": {
-    "@supabase/supabase-js": "^2.39.5"
+    "@supabase/supabase-js": "^2.50.2"
   }
 }
