@@ -1,22 +1,35 @@
 // Force redeploy to load SUPABASE_KEY
+// api/supabase-proxy.js
+
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_KEY
+);
+
 export default async function handler(req, res) {
   try {
-    const { query } = req;
+    const keyword = req.query.query || '';  // this is the search word
+    const steep = req.query.steep;
+    const domains = req.query.domains;
+    const time_horizon = req.query.time_horizon;
+    const limit = parseInt(req.query.limit) || 5;
 
-    const url = new URL("https://sqcnmjkxtqokmvadseny.supabase.co/rest/v1/signals");
-    Object.entries(query).forEach(([key, value]) => url.searchParams.append(key, value));
+    let query = supabase.from('signals').select('*');
 
-    const response = await fetch(url.toString(), {
-      headers: {
-        apikey: process.env.SUPABASE_KEY,
-        Authorization: `Bearer ${process.env.SUPABASE_KEY}`
-      }
-    });
+    if (keyword) query = query.ilike('description', `%${keyword}%`);
+    if (steep) query = query.eq('steep', steep);
+    if (domains) query = query.eq('domains', domains);
+    if (time_horizon) query = query.eq('time_horizon', time_horizon);
 
-    const data = await response.json();
-    res.status(response.status).json(data);
-  } catch (error) {
-    console.error("Proxy error:", error);
-    res.status(500).json({ error: "Proxy failed", details: error.message });
+    const { data, error } = await query.limit(limit);
+
+    if (error) throw error;
+
+    res.status(200).json(data);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Signal query failed', details: err.message });
   }
 }
