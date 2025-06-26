@@ -1,34 +1,52 @@
-ximport { createClient } from '@supabase/supabase-js';
+// supabase-proxy.js
+import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_KEY
+);
 
 export default async function handler(req, res) {
   try {
-    const { query, steep, domains, time_horizon, limit } = req.query;
-    const searchLimit = parseInt(limit) || 5;
+    const { query = '', steep = '', domains = '', horizon = '' } = req.query;
 
-    let supabaseQuery = supabase.from('signals').select('*');
+    let sbQuery = supabase.from('signals').select('*');
 
-    if (query) {
-      supabaseQuery = supabaseQuery.ilike('description', `%${query}%`);
-    }
-    if (steep) {
-      supabaseQuery = supabaseQuery.eq('steep', steep);
-    }
-    if (domains) {
-      supabaseQuery = supabaseQuery.eq('domains', domains);
-    }
-    if (time_horizon) {
-      supabaseQuery = supabaseQuery.eq('time_horizon', time_horizon);
+    // Keyword search across multiple fields
+    if (query && query.trim() !== '') {
+      const keyword = query.trim();
+      sbQuery = sbQuery.or(`
+        Signal Title.ilike.%${keyword}%,
+        Description.ilike.%${keyword}%,
+        Implication.ilike.%${keyword}%,
+        Why It Matters.ilike.%${keyword}%
+      `);
     }
 
-    const { data, error } = await supabaseQuery.limit(searchLimit);
+    // Add filters conditionally
+    if (steep && steep.trim() !== '') {
+      sbQuery = sbQuery.eq('STEEP', steep);
+    }
 
-    if (error) throw error;
+    if (domains && domains.trim() !== '') {
+      sbQuery = sbQuery.ilike('Domains', `%${domains}%`);
+    }
 
-    res.status(200).json(data);
+    if (horizon && horizon.trim() !== '') {
+      sbQuery = sbQuery.eq('Time Horizon', horizon);
+    }
+
+    // Execute query
+    const { data, error } = await sbQuery.limit(5);
+
+    if (error) {
+      console.error('Supabase query error:', error);
+      return res.status(500).json({ error: 'Error querying signal bank.' });
+    }
+
+    return res.status(200).json(data);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Signal query failed', details: err.message });
+    console.error('Proxy handler error:', err);
+    return res.status(500).json({ error: 'Unexpected server error.' });
   }
 }
